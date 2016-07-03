@@ -4,7 +4,9 @@ import java.io.IOException;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.PrintWriter;
+import java.util.Arrays;
 import java.util.Scanner;
+import java.util.ArrayList;
 
 /**
  * Built using CHelper plug-in
@@ -16,84 +18,117 @@ public class Main {
   public static void main(String[] args) {
     InputStream inputStream;
     try {
-      inputStream = new FileInputStream("ratios.in");
+      inputStream = new FileInputStream("butter.in");
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
     OutputStream outputStream;
     try {
-      outputStream = new FileOutputStream("ratios.out");
+      outputStream = new FileOutputStream("butter.out");
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
     Scanner in = new Scanner(inputStream);
     PrintWriter out = new PrintWriter(outputStream);
-    ratios solver = new ratios();
+    butter solver = new butter();
     solver.solve(1, in, out);
     out.close();
   }
 
-  static class ratios {
+  static class butter {
+    int n;
+    int p;
+    int c;
+    int[] cowCountAtPasture;
+    ArrayList<ArrayList<Node>> adj;
+    boolean[] vis;
+    int[] dist;
+
     public void solve(int testNumber, Scanner in, PrintWriter out) {
-      int tB = in.nextInt();
-      int tO = in.nextInt();
-      int tW = in.nextInt();
-
-      int[] b = new int[3];
-      int[] o = new int[3];
-      int[] w = new int[3];
-      int[][] m = new int[3][3];
-      for (int i = 0; i < 9; ++i) {
-        switch (i % 3) {
-          case 0:
-            b[i / 3] = in.nextInt();
-            break;
-          case 1:
-            o[i / 3] = in.nextInt();
-            break;
-          case 2:
-            w[i / 3] = in.nextInt();
-            break;
-
-        }
+      n = in.nextInt();
+      p = in.nextInt();
+      c = in.nextInt();
+      cowCountAtPasture = new int[p];
+      int[][] edges = new int[p][p];
+      adj = new ArrayList<ArrayList<Node>>(p);
+      for (int i = 0; i < p; ++i) {
+        adj.add(i, new ArrayList<Node>());
       }
-      int B, O, W;
-      int minSum = Integer.MAX_VALUE;
-      int besta1 = 0, besta2 = 0, besta3 = 0, bestMultiple = -1;
+      for (int i = 0; i < n; ++i) {
+        cowCountAtPasture[in.nextInt() - 1]++;
+      }
+      for (int i = 0; i < c; ++i) {
+        int from = in.nextInt() - 1;
+        int to = in.nextInt() - 1;
+        int dist = in.nextInt();
+        adj.get(from).add(new Node(to, dist));
+        adj.get(to).add(new Node(from, dist));
+      }
+      vis = new boolean[p];
+      dist = new int[p];
+      //setup done
+      long bestDist = Long.MAX_VALUE;
+      for (int i = 0; i < p; ++i) {
+        long curDist = getDistWithSourceAt(i);
+        if (curDist < bestDist) bestDist = curDist;
+      }
+      out.println(bestDist);
+      out.close();
+      return;
+    }
 
-      for (int a1 = 0; a1 < 100; ++a1)
-        for (int a2 = 0; a2 < 100; ++a2) {
-          for (int a3 = 0; a3 < 100; ++a3) {
-            B = a1 * b[0] + a2 * b[1] + a3 * b[2];
-            O = a1 * o[0] + a2 * o[1] + a3 * o[2];
-            W = a1 * w[0] + a2 * w[1] + a3 * w[2];
+    private long getDistWithSourceAt(int src) {
 
-            int valB = tB == 0 || B == 0 ? (B == 0 && tB == 0) ? 0 : -1 : B % tB == 0 ? B / tB : -1;
-            int valO = tO == 0 || O == 0 ? (O == 0 && tB == 0) ? 0 : -1 : O % tO == 0 ? O / tO : -1;
-            int valW = tW == 0 || W == 0 ? (W == 0 && tW == 0) ? 0 : -1 : W % tW == 0 ? W / tW : -1;
-
-            if (valB != -1 && valO != -1 && valW != -1) {
-              boolean acceptableBO = valB == 0 || valO == 0 || valB == valO;
-              boolean acceptableOW = valW == 0 || valO == 0 || valW == valO;
-              boolean acceptableBW = valW == 0 || valB == 0 || valW == valB;
-
-              if (acceptableBO && acceptableOW && acceptableBW) {
-                int sum = a1 + a1 + a3;
-                if (sum < minSum) {
-                  minSum = sum;
-                  besta1 = a1;
-                  besta2 = a2;
-                  besta3 = a3;
-                  bestMultiple = valB;
-                }
-              }
-            }
+      Arrays.fill(vis, false);
+      Arrays.fill(dist, Integer.MAX_VALUE);
+      ArrayList<Integer> q = new ArrayList<Integer>();
+      dist[src] = 0;
+      for (int i = 0; i < p; ++i) {
+        q.add(i);
+      }
+      while (!q.isEmpty()) {
+        int qs = q.size();
+        int leastUnvisited = -1;
+        int leastDist = Integer.MAX_VALUE;
+        for (int i = 0; i < qs; ++i) {
+          int indx = q.get(i);
+          if (dist[indx] < leastDist) {
+            leastUnvisited = i;
+            leastDist = dist[indx];
           }
         }
-      if (bestMultiple == -1) {
-        out.println("NONE");
-      } else out.println(besta1 + " " + besta2 + " " + besta3 + " " + bestMultiple);
-      out.close();
+        if (leastUnvisited == -1)
+          break;
+        int t = q.remove(leastUnvisited);
+        vis[t] = true;
+        for (Node nd : adj.get(t))
+          if (!vis[nd.to])
+            dist[nd.to] = Math.min(dist[nd.to], dist[t] + nd.distance);
+      }
+      long totalDist = 0;
+      for (int i = 0; i < p; ++i) {
+        if (cowCountAtPasture[i] == 0) continue;
+        totalDist += cowCountAtPasture[i] * dist[i];
+      }
+      return totalDist;
+    }
+
+    class Node implements Comparable<Node> {
+      int distance;
+      int to;
+
+      Node(int To, int Dist) {
+        to = To;
+        distance = Dist;
+      }
+
+
+      public int compareTo(Node o) {
+        if (this.distance < o.distance) return -1;
+        if (this.distance > o.distance) return 1;
+        return 0;
+      }
+
     }
 
   }
